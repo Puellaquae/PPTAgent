@@ -1,25 +1,24 @@
-name: Pull Request CI
+name: Python application
 
 on:
-    workflow_dispatch:
-    pull_request:
-        branches:
-            - main
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
-        env:
-            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-            LANGUAGE_MODEL: ${{ secrets.LANGUAGE_MODEL }}
-            VISION_MODEL: ${{ secrets.VISION_MODEL }}
-            TEXT_MODEL: ${{ secrets.TEXT_MODEL }}
+  build:
 
-        steps:
-            - name: Check out Git repository
-              uses: actions/checkout@v4
+    runs-on: ubuntu-latest
 
-            - name: Install dependencies
-              run: |
-                  echo ${{ secrets.VISION_MODEL }}
-                  EEE=${{ secrets.VISION_MODEL }} echo "$EEE"
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: TEST_SECRET=${{ secrets.TEXT_MODEL }} python test.py
