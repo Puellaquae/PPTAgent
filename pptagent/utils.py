@@ -25,6 +25,7 @@ from pptx.text.text import _Paragraph, _Run
 from pptx.util import Length, Pt
 from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
+from bs4 import BeautifulSoup
 
 def get_logger(name="pptagent", level=None):
     """
@@ -283,6 +284,10 @@ def markdown_table_to_image(markdown_text: str, output_path: str):
     """
     html = markdown(markdown_text)
     assert "table" in html, "Failed to find table in markdown"
+
+    soup = BeautifulSoup(html, 'html.parser')
+    tables = soup.find_all('table')
+    html = f"<html><body>{''.join(str(table) for table in tables)}</body></html>"
 
     parent_dir, basename = os.path.split(output_path)
     hti = Html2Image(

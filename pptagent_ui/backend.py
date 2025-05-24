@@ -45,7 +45,6 @@ STAGES = [
     "PPT Generation",
     "Success!",
 ]
-MINERU_API_BASE = os.environ.get("MINERU_API_BASE")
 
 models = ModelManager()
 
@@ -275,12 +274,7 @@ async def ppt_gen(task_id: str, rerun=False):
         # pdf parsing
         if not os.path.exists(pjoin(parsedpdf_dir, "source.md")):
             source_file = pjoin(RUNS_DIR, "pdf", pdf_md5, "source.pdf")
-            with open(source_file, 'rb') as pdf_file:
-                response = requests.post(f"{MINERU_API_BASE}/mineru_pdf2zip", files={"pdf": pdf_file})
-            response.raise_for_status()
-            os.makedirs(parsedpdf_dir, exist_ok=True)
-            with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
-                zip_ref.extractall(parsedpdf_dir)
+            parse_pdf(source_file, parsedpdf_dir, models.mineru_model_api)
         text_content = open(pjoin(parsedpdf_dir, "source.md")).read()
         await progress.report_progress()
 

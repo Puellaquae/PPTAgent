@@ -6,16 +6,16 @@ from typing import Optional
 import numpy as np
 import torch
 import torchvision.transforms as T
-from marker.config.parser import ConfigParser
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
-from marker.output import text_from_rendered
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Presentation, SlidePage
 from pptagent.utils import get_logger, is_image_path, pjoin
+
+import requests
+import zipfile
+from io import BytesIO
 
 logger = get_logger(__name__)
 
@@ -31,6 +31,7 @@ class ModelManager:
         language_model_name: Optional[str] = None,
         vision_model_name: Optional[str] = None,
         text_model_name: Optional[str] = None,
+        mineru_model_api: Optional[str] = None,
     ):
         """Initialize models from environment variables after instance creation"""
         if api_base is None:
@@ -42,26 +43,18 @@ class ModelManager:
         if text_model_name is None:
             text_model_name = os.environ.get("TEXT_MODEL", "text-embedding-3-small")
         self._image_model = None
-        self._marker_model = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
         self.text_model = AsyncLLM(text_model_name, api_base)
+        self.mineru_model_api = mineru_model_api if mineru_model_api else os.environ.get("MINERU_API_BASE", None)
 
     @property
     def image_model(self):
         if self._image_model is None:
             self._image_model = get_image_model(device=self.device)
         return self._image_model
-
-    @property
-    def marker_model(self):
-        if self._marker_model is None:
-            self._marker_model = create_model_dict(
-                device=self.device, dtype=torch.float16
-            )
-        return self._marker_model
 
     async def test_connections(self) -> bool:
         """Test connections for all LLM models
@@ -76,6 +69,14 @@ class ModelManager:
         except:
             return False
         return True
+    
+    async def test_parse_pdf(self) -> bool:
+        try:
+            # only test parse_pdf service is accessible
+            _ = requests.get(self.mineru_model_api, timeout=5)
+            return True
+        except requests.exceptions.RequestException:
+            return False
 
 
 def prs_dedup(
@@ -137,7 +138,7 @@ def get_image_model(device: str = None):
 def parse_pdf(
     pdf_path: str,
     output_path: str,
-    model_lst: list,
+    mineru_model_api: str
 ) -> str:
     """
     Parse a PDF file and extract text and images.
@@ -145,34 +146,17 @@ def parse_pdf(
     Args:
         pdf_path (str): The path to the PDF file.
         output_path (str): The directory to save the extracted content.
-        model_lst (list): A list of models for processing the PDF.
+        mineru_model_api (str): MinerU model api url.
 
     Returns:
-        str: The full text extracted from the PDF.
+        void: just put parsed file in output_path, need caller self to read
     """
     os.makedirs(output_path, exist_ok=True)
-    config_parser = ConfigParser(
-        {
-            "output_format": "markdown",
-        }
-    )
-    converter = PdfConverter(
-        config=config_parser.generate_config_dict(),
-        artifact_dict=model_lst,
-        processor_list=config_parser.get_processors(),
-        renderer=config_parser.get_renderer(),
-    )
-    rendered = converter(pdf_path)
-    full_text, _, images = text_from_rendered(rendered)
-    with open(pjoin(output_path, "source.md"), "w+", encoding="utf-8") as f:
-        f.write(full_text)
-    for filename, image in images.items():
-        image_filepath = os.path.join(output_path, filename)
-        image.save(image_filepath, "JPEG")
-    with open(pjoin(output_path, "meta.json"), "w+", encoding="utf-8") as f:
-        f.write(json.dumps(rendered.metadata, indent=4))
-
-    return full_text
+    with open(pdf_path, 'rb') as pdf_file:
+        response = requests.post(f"{mineru_model_api}", files={"pdf": pdf_file})
+    response.raise_for_status()
+    with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
+        zip_ref.extractall(output_path)
 
 
 def get_image_embedding(
