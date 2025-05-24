@@ -197,42 +197,45 @@ class Table(Media):
             )
             logger.debug(f"Caption: {self.caption}")
 
-def parse_tables_with_merges(html: str) -> list[tuple[list[list[str]], list[tuple[int, int, int, int]]]]:
-    """ parse table in html with merge cell
-    
+
+def parse_tables_with_merges(
+    html: str,
+) -> list[tuple[list[list[str]], list[tuple[int, int, int, int]]]]:
+    """parse table in html with merge cell
+
     Args:
         html (str)
-        
+
     Returns:
         cell_and_merges (list[(cell: list[list[str]], merges: list[(x0: int, y0: int, x1: int, y1: int)])])
     """
-    soup = BeautifulSoup(html, 'html.parser')
-    tables = soup.find_all('table')
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
     res = []
     for table in tables:
         # 计算表格最大行列
-        rows = table.find_all('tr')
+        rows = table.find_all("tr")
         max_row = 0
         col_counter = []
         for row_idx, row in enumerate(rows):
             col_span_sum = 0
-            for cell in row.find_all(['td', 'th']):
-                row_span = int(cell.get('rowspan', 1))
-                col_span = int(cell.get('colspan', 1))
+            for cell in row.find_all(["td", "th"]):
+                row_span = int(cell.get("rowspan", 1))
+                col_span = int(cell.get("colspan", 1))
                 max_row = max(max_row, row_idx + row_span)
                 col_span_sum += col_span
             col_counter.append(col_span_sum)
         max_col = max(col_counter) if col_counter else 0
 
         # 初始化数据容器
-        grid = [['' for _ in range(max_col)] for _ in range(max_row)]
+        grid = [["" for _ in range(max_col)] for _ in range(max_row)]
         occupied = [[False for _ in range(max_col)] for _ in range(max_row)]
         merges = []
 
         # 主解析逻辑
         for row_idx, row in enumerate(rows):
             col_idx = 0
-            for cell in row.find_all(['td', 'th']):
+            for cell in row.find_all(["td", "th"]):
                 # 跳过已占用的列
                 while col_idx < max_col and occupied[row_idx][col_idx]:
                     col_idx += 1
@@ -240,8 +243,8 @@ def parse_tables_with_merges(html: str) -> list[tuple[list[list[str]], list[tupl
                     break
 
                 # 解析单元格属性
-                row_span = int(cell.get('rowspan', 1))
-                col_span = int(cell.get('colspan', 1))
+                row_span = int(cell.get("rowspan", 1))
+                col_span = int(cell.get("colspan", 1))
                 cell_value = cell.get_text(strip=True)
 
                 # 记录合并范围 (闭区间)
@@ -263,6 +266,7 @@ def parse_tables_with_merges(html: str) -> list[tuple[list[list[str]], list[tupl
                 col_idx += col_span  # 移动到下一列
         res.append((grid, merges))
     return res
+
 
 @dataclass
 class SubSection:

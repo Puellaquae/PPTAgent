@@ -10,9 +10,6 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 from datetime import datetime
 from typing import Optional
-import requests
-import zipfile
-from io import BytesIO
 
 from fastapi import (
     FastAPI,

@@ -1,9 +1,11 @@
-import json
 import os
+import zipfile
 from copy import deepcopy
+from io import BytesIO
 from typing import Optional
 
 import numpy as np
+import requests
 import torch
 import torchvision.transforms as T
 from PIL import Image
@@ -12,10 +14,6 @@ from transformers import AutoModel, AutoProcessor
 from pptagent.llms import LLM, AsyncLLM
 from pptagent.presentation import Presentation, SlidePage
 from pptagent.utils import get_logger, is_image_path, pjoin
-
-import requests
-import zipfile
-from io import BytesIO
 
 logger = get_logger(__name__)
 
@@ -48,7 +46,11 @@ class ModelManager:
         self.language_model = AsyncLLM(language_model_name, api_base)
         self.vision_model = AsyncLLM(vision_model_name, api_base)
         self.text_model = AsyncLLM(text_model_name, api_base)
-        self.mineru_model_api = mineru_model_api if mineru_model_api else os.environ.get("MINERU_API_BASE", None)
+        self.mineru_model_api = (
+            mineru_model_api
+            if mineru_model_api
+            else os.environ.get("MINERU_API_BASE", None)
+        )
 
     @property
     def image_model(self):
@@ -69,7 +71,7 @@ class ModelManager:
         except:
             return False
         return True
-    
+
     async def test_parse_pdf(self) -> bool:
         try:
             # only test parse_pdf service is accessible
@@ -135,11 +137,7 @@ def get_image_model(device: str = None):
     )
 
 
-def parse_pdf(
-    pdf_path: str,
-    output_path: str,
-    mineru_model_api: str
-) -> str:
+def parse_pdf(pdf_path: str, output_path: str, mineru_model_api: str) -> str:
     """
     Parse a PDF file and extract text and images.
 
@@ -152,7 +150,7 @@ def parse_pdf(
         void: just put parsed file in output_path, need caller self to read
     """
     os.makedirs(output_path, exist_ok=True)
-    with open(pdf_path, 'rb') as pdf_file:
+    with open(pdf_path, "rb") as pdf_file:
         response = requests.post(f"{mineru_model_api}", files={"pdf": pdf_file})
     response.raise_for_status()
     with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
