@@ -137,7 +137,7 @@ def get_image_model(device: str = None):
     )
 
 
-def parse_pdf(pdf_path: str, output_path: str, mineru_model_api: str) -> str:
+def parse_pdf(pdf_path: str, output_path: str, mineru_model_api: str):
     """
     Parse a PDF file and extract text and images.
 

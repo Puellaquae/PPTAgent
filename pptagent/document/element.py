@@ -121,26 +121,9 @@ class Table(Media):
 
     def parse_table(self, image_dir: str):
         html = markdown(self.markdown_content)
-        soup = BeautifulSoup(html, "html.parser")
-        table = soup.find("table")
-        self.cells = []
-        for row in table.find_all("tr"):
-            self.cells.append(
-                [cell.text for cell in row.find_all("td") + row.find_all("th")]
-            )
-        for i in range(len(self.cells)):
-            row = self.cells[i]
-            unstacked = row[0].split("\n")
-            if len(unstacked) == len(row) and all(
-                cell.strip() == "" for cell in row[1:]
-            ):
-                self.cells[i] = unstacked
-
-        if self.path is None:
-            self.path = pjoin(
-                image_dir,
-                f"table_{hashlib.md5(str(self.cells).encode()).hexdigest()[:4]}.png",
-            )
+        cells, merges = parse_tables_with_merges(html)[0]
+        self.cells = cells
+        self.merge_area = merges
         markdown_table_to_image(self.markdown_content, self.path)
 
     def parse(self, table_model: Optional[LLM], image_dir: str):
